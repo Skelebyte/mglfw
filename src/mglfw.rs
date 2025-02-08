@@ -3,12 +3,14 @@
 pub mod core {
     extern crate glfw;
 
-    use glfw::{Action, Context, Glfw, GlfwReceiver, Key, PWindow, WindowEvent};
+    use glfw::{Context, Glfw, GlfwReceiver, PWindow, WindowEvent};
+
 
     pub struct Mglfw {
         pub glfw: Glfw,
         pub window: PWindow,
-        pub events: GlfwReceiver<(f64, WindowEvent)>
+        pub events: GlfwReceiver<(f64, WindowEvent)>,
+        pub i_events: Vec<glfw::WindowEvent>
     }
     impl Mglfw {
         pub fn new(title: &str, w: u32, h: u32) -> Mglfw {
@@ -20,42 +22,27 @@ pub mod core {
                 glfw: g,
                 window: w,
                 events: e,
+                i_events: Vec::new()
             }
     
         }
 
-        pub fn is_running(mut self) -> bool {
-            if self.window.should_close() == false {
-                true
-            } else {
-                self.window.set_should_close(true);
-                false
-            }
+        pub fn is_running(&mut self) -> bool {
+            !self.window.should_close()
         }
 
         pub fn quit(&mut self) {
             self.window.set_should_close(true);
         }
     
-        pub fn update(&mut self, target: fn()) {
-            while !self.window.should_close() {
-                self.glfw.poll_events();
-                let events: Vec<_> = glfw::flush_messages(&self.events).collect();
-                for (_, event) in events {
-                    self.input_update(event);
-                }
-                target();
-            }
-            
-        }
     
-        fn input_update(&mut self, we: WindowEvent) {
-            match we {
-                glfw::WindowEvent::Key(Key::Escape, _, Action::Press, _) => {
-                    self.window.set_should_close(true)
-                }
-                _ => {}
+        pub fn input_update(&mut self) {
+            self.glfw.poll_events();
+            let mut p_events = Vec::new();
+            for (_, event) in glfw::flush_messages(&self.events) {
+                p_events.push(event);
             }
+            self.i_events = p_events;
         }
     
     
@@ -68,17 +55,17 @@ pub mod input {
 
     extern crate glfw;
 
-    use std::ffi::c_int;
 
-    use glfw::{Action, Context, Glfw, GlfwReceiver, Key, PWindow, WindowEvent};
+
+
 
     use super::core::Mglfw;
     
     #[derive(Clone, Copy)]
     pub enum Activation {
-        RELEASE = 0,
-        PRESS = 1,
-        REPEAT = 2
+        Release = 0,
+        Press = 1,
+        Repeat = 2
     }
     
     
@@ -211,65 +198,51 @@ pub mod input {
     pub struct Keybind {
         pub name: String,
         pub keys: KeyCode,
-        glfw_keys: glfw::Key,
+        pub glfw_keys: glfw::Key,
         pub activation: Activation,
+        pub glfw_activation: glfw::Action,
         active: bool
     }
     impl Keybind {
 
     }
-    pub struct Input<'a> {
-        pub mglfw: &'a Mglfw,
+    pub struct Input {
+        
         pub keybinds: Vec<Keybind>
         // pub events: GlfwReceiver<(f64, WindowEvent)>
     }
-    impl<'a> Input<'a> {
-        pub fn init(mglfw: &Mglfw) -> Input {
+    impl Input {
+        pub fn init() -> Input {
             // let events: GlfwReceiver<(f64, WindowEvent)> = mglfw.events;
             Input {
-                mglfw: mglfw,
                 keybinds: Vec::new()
                 // events: events
             }
         }
-        pub fn new(&mut self, name: &str, k: KeyCode, a: Activation) {
+        pub fn new(&mut self, name: &str, k: KeyCode, a: Activation) -> Keybind {
             let new_keybind = Keybind {
                 name: name.to_string(),
                 keys: k,
                 glfw_keys: unsafe { std::mem::transmute(k as i32) },
                 activation: a,
+                glfw_activation: unsafe { std::mem::transmute(a as i32) },
                 active: false
             };
-            self.keybinds.push(new_keybind);
+            //self.keybinds.push(new_keybind);
+            new_keybind
         }
 
-        pub fn is_bind_active(&self, keybind_name: &str) -> bool {
+        pub fn is_bind_active(&self, mglfw: &Mglfw, keybind: &Keybind) -> bool { //keybind_name: &str
 
+            for event in mglfw.i_events.iter() {
+                match event {
+                    glfw::WindowEvent::Key(key, _, activation, _) if *key == keybind.glfw_keys && *activation == keybind.glfw_activation => {
 
-            for kb in &self.keybinds {
-                if kb.name.to_lowercase() != keybind_name.to_lowercase() {
-                    return false;
-                } else {
-                    let _activ: Activation = kb.activation;
-                    let key = kb.keys;
-        
-                    let events: Vec<_> = glfw::flush_messages(&self.mglfw.events).collect();
-                    
-                    for (_, event) in events {
-                        match event {
-                            glfw::WindowEvent::Key(key, _, _activ, _) => {
-                                // kb.active = true;
-                                return true;
-                            }
-                            _ => {}
-                        }
+                        return true;
                     }
+                    _ => {}
                 }
-
             }
-
-
-
             false
         }
     }

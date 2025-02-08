@@ -1,7 +1,6 @@
 mod mglfw;
-mod input;
 
-use mglfw::core;
+use mglfw::{core, input};
 
 
 
@@ -24,15 +23,19 @@ use mglfw::core;
 
 fn main() {
     let mut mglfw: core::Mglfw = core::Mglfw::new("hi mum!", 300, 300);
-    let mut input =  mglfw::input::Input::init(&mut mglfw);
-    // core::Mglfw::update(&mut mglfw, tick);
+    let mut input =  input::Input::init();
 
-    input.new("quit", mglfw::input::KeyCode::Escape, mglfw::input::Activation::PRESS);
-
+    let quit = input.new( "quit", input::KeyCode::Escape, input::Activation::Press);
+    let w = input.new( "w", input::KeyCode::W, input::Activation::Press);
+    
     while mglfw.is_running() {
-        //mglfw.glfw.poll_events();
-        if input.is_bind_active("quit") {
-            
+        mglfw.input_update();
+
+        if input.is_bind_active(&mglfw,&w) {
+            println!("100");
+        }
+        if input.is_bind_active(&mglfw, &quit) {
+            mglfw.quit();
         }
     }
     println!("quit");
